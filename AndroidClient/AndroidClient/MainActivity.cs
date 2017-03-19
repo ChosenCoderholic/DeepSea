@@ -1,6 +1,7 @@
 ﻿using System;
 using Android.App;
 using Android.Content;
+using Android.Content.PM;
 using Android.Runtime;
 using Android.Views;
 using Android.Widget;
@@ -8,9 +9,12 @@ using Android.OS;
 
 namespace AndroidClient
 {
-    [Activity(Label = "AndroidClient", MainLauncher = true, Icon = "@drawable/icon")]
+    
+    [Activity(Label = "AndroidClient", MainLauncher = true, Icon = "@drawable/icon", ScreenOrientation = ScreenOrientation.Landscape)]
+    
     public class MainActivity : Activity
     {
+        
         //int count = 1;
 
         enum State
