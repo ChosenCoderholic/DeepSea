@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
+using Android.Graphics;
 using Android.Runtime;
 using Android.Views;
 using Android.Widget;
@@ -28,6 +29,7 @@ namespace AndroidClient
             WaitingForConnectionRequest,
             SendingClientInfo,
             WaitingForTargetDefinition,
+            SendingStreamRequest,
             WaitingForStream
         }
 
@@ -45,6 +47,8 @@ namespace AndroidClient
             Stream = 0,
         }
 
+        IWindowManager windowManager;
+        private Point ScreenSize = new Point(0, 0);
         State currentState = State.Initializing;
 
         protected override void OnCreate(Bundle bundle)
@@ -60,41 +64,52 @@ namespace AndroidClient
 
             //button.Click += delegate { button.Text = string.Format("{0} clicks!", count++); };
 
-            currentState = State.Initializing;
-
-            currentState = State.WaitingForHost;
-
+            
             Socket serverSocket = null;
+
+            currentState = State.Initializing;
 
             while (currentState != State.WaitingForStream)
             {
-                currentState = HandleConnection(serverSocket);
+                currentState = HandleConnection(ref serverSocket);
             }
 
         }
 
-        State HandleConnection(Socket serverSocket)
+        State HandleConnection(ref Socket serverSocket)
         {
             switch (currentState)
             {
+                case State.Initializing:
+                    windowManager = GetSystemService(Context.WindowService).JavaCast<IWindowManager>();
+                    windowManager.DefaultDisplay.GetRealSize(ScreenSize);
+                    return State.WaitingForHost;
+
                 case State.WaitingForHost:
-                    IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 1080);
+                    IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 1920);
+                    serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    serverSocket.Bind(ipEndPoint);
+                    serverSocket.Listen(100);
                     
+                    serverSocket = serverSocket.Accept();
 
-                    serverSocket = new Socket(ipEndPoint.AddressFamily, SocketType.Raw, ProtocolType.Tcp);
-                    
-                    serverSocket.Accept();
-                    
-
-                    return State.SendingClientInfo;
+                    return State.WaitingForConnectionRequest;
 
                 case State.WaitingForConnectionRequest:
                     //TODO: Wait for packet
                     return State.SendingClientInfo;
 
                 case State.SendingClientInfo:
-                    SendClientInfo(serverSocket);
-                    return State.WaitingForTargetDefinition;
+                    if(SendClientInfo(serverSocket))
+                        return State.WaitingForTargetDefinition;
+
+                    serverSocket.Close();
+                    return State.WaitingForHost;
+
+                case State.WaitingForTargetDefinition:
+                //TODO: Wait for packet
+
+                case State.SendingStreamRequest:
 
                 case State.WaitingForStream:
 
@@ -105,20 +120,36 @@ namespace AndroidClient
             }
         }
 
-        private void SendClientInfo(Socket serverSocket)
+        private bool SendClientInfo(Socket serverSocket)
         {
-            DisplayMetrics displayMetrics = new DisplayMetrics();
+            byte[] width = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.X));
+            byte[] height = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.Y));
 
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(width);
+                Array.Reverse(height);
+            }
+    
             byte[] tcpPayload = new[]
             {
                 Convert.ToByte(PacketType.ClientDefinition),
-                Convert.ToByte(displayMetrics.WidthPixels),
-                Convert.ToByte(displayMetrics.HeightPixels)
+                width[0],
+                width[1],
+                height[0],
+                height[1]
             };
 
-            displayMetrics = null;
+            width = null;
+            height = null;
 
-            serverSocket.Send(tcpPayload);
+            if (serverSocket.Connected)
+            {
+                serverSocket.Send(tcpPayload);
+                return true;
+            }
+
+            return false;
         }
     }
 }
