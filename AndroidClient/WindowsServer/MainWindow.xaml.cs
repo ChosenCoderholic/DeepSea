@@ -31,7 +31,7 @@ namespace WindowsServer
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.178.58"), 1920);
+            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.178.27"), 1920);
             Socket clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
 

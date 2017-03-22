@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using Android.App;
 using Android.Content;
@@ -50,30 +51,38 @@ namespace AndroidClient
         IWindowManager windowManager;
         private Point ScreenSize = new Point(0, 0);
         State currentState = State.Initializing;
+        private Thread workerThread = null;
+
+        private TextView txtStatus = null;
+
 
         protected override void OnCreate(Bundle bundle)
         {
             base.OnCreate(bundle);
-
-            // Set our view from the "main" layout resource
+            
             SetContentView(Resource.Layout.Main);
 
-            //// Get our button from the layout resource,
-            //// and attach an event to it
-            //Button button = FindViewById<Button>(Resource.Id.MyButton);
-
-            //button.Click += delegate { button.Text = string.Format("{0} clicks!", count++); };
-
+            txtStatus = FindViewById<TextView>(Resource.Id.txtState);
             
-            Socket serverSocket = null;
-
-            currentState = State.Initializing;
-
-            while (currentState != State.WaitingForStream)
+            workerThread = new Thread(() =>
             {
-                currentState = HandleConnection(ref serverSocket);
-            }
+                Socket serverSocket = null;
 
+                while (currentState != State.WaitingForStream)
+                {
+                    currentState = HandleConnection(ref serverSocket);
+                }
+            });
+
+            workerThread.IsBackground = true;
+            workerThread.Start();
+
+        }
+
+        void UpdateStatusText(string text)
+        {
+            Action action = delegate { txtStatus.Text = text; };
+            txtStatus.Post(action);
         }
 
         State HandleConnection(ref Socket serverSocket)
@@ -81,11 +90,14 @@ namespace AndroidClient
             switch (currentState)
             {
                 case State.Initializing:
+                    UpdateStatusText("Initializing");
                     windowManager = GetSystemService(Context.WindowService).JavaCast<IWindowManager>();
                     windowManager.DefaultDisplay.GetRealSize(ScreenSize);
+                    
                     return State.WaitingForHost;
 
                 case State.WaitingForHost:
+                    UpdateStatusText("Waiting for host");
                     IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 1920);
                     serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     serverSocket.Bind(ipEndPoint);
@@ -96,22 +108,29 @@ namespace AndroidClient
                     return State.WaitingForConnectionRequest;
 
                 case State.WaitingForConnectionRequest:
+                    UpdateStatusText("Waiting for connection request");
                     //TODO: Wait for packet
                     return State.SendingClientInfo;
 
                 case State.SendingClientInfo:
-                    if(SendClientInfo(serverSocket))
+                    UpdateStatusText("Sending client information");
+                    if (SendClientInfo(serverSocket))
                         return State.WaitingForTargetDefinition;
 
                     serverSocket.Close();
                     return State.WaitingForHost;
 
                 case State.WaitingForTargetDefinition:
-                //TODO: Wait for packet
+                    UpdateStatusText("Waiting for target definition");
+                    //TODO: Wait for packet
+                    return State.SendingStreamRequest;
 
                 case State.SendingStreamRequest:
+                    UpdateStatusText("Sending stream request");
+                    return State.WaitingForStream;
 
                 case State.WaitingForStream:
+                    UpdateStatusText("Waiting for stream");
 
                     return State.WaitingForStream;
 

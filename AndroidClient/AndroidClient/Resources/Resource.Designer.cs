@@ -61,7 +61,7 @@ namespace AndroidClient
 		{
 			
 			// aapt resource value: 0x7f050000
-			public const int MyButton = 2131034112;
+			public const int txtState = 2131034112;
 			
 			static Id()
 			{
