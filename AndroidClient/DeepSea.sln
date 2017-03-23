@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AndroidClient", "AndroidCli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WindowsServer", "WindowsServer\WindowsServer.csproj", "{04A1C188-C1D0-439A-993B-7A52D32813E0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lib.DeepSea", "Lib.DeepSea\Lib.DeepSea.csproj", "{0329A1D3-71CE-4110-B557-878E070EDD5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,6 +25,10 @@ Global
 		{04A1C188-C1D0-439A-993B-7A52D32813E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{04A1C188-C1D0-439A-993B-7A52D32813E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{04A1C188-C1D0-439A-993B-7A52D32813E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0329A1D3-71CE-4110-B557-878E070EDD5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0329A1D3-71CE-4110-B557-878E070EDD5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0329A1D3-71CE-4110-B557-878E070EDD5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0329A1D3-71CE-4110-B557-878E070EDD5B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

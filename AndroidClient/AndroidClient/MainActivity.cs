@@ -12,6 +12,7 @@ using Android.Views;
 using Android.Widget;
 using Android.OS;
 using Android.Util;
+using Lib.DeepSea;
 
 namespace AndroidClient
 {
@@ -28,25 +29,13 @@ namespace AndroidClient
             Initializing,
             WaitingForHost,
             WaitingForConnectionRequest,
-            SendingClientInfo,
+            SendingClientDefinition,
             WaitingForTargetDefinition,
             SendingStreamRequest,
             WaitingForStream
         }
 
-        enum PacketType
-        {
-            //Init
-            ConnectionRequest = 1, 
-            ClientDefinition = 2,
-
-            //Definitions
-            TargetDefinition = 3,
-            ReadyForStream = 4,
-
-            //Stream
-            Stream = 0,
-        }
+        
 
         IWindowManager windowManager;
         private Point ScreenSize = new Point(0, 0);
@@ -63,7 +52,7 @@ namespace AndroidClient
             SetContentView(Resource.Layout.Main);
 
             txtStatus = FindViewById<TextView>(Resource.Id.txtState);
-            
+
             workerThread = new Thread(() =>
             {
                 Socket serverSocket = null;
@@ -110,9 +99,9 @@ namespace AndroidClient
                 case State.WaitingForConnectionRequest:
                     UpdateStatusText("Waiting for connection request");
                     //TODO: Wait for packet
-                    return State.SendingClientInfo;
+                    return State.SendingClientDefinition;
 
-                case State.SendingClientInfo:
+                case State.SendingClientDefinition:
                     UpdateStatusText("Sending client information");
                     if (SendClientInfo(serverSocket))
                         return State.WaitingForTargetDefinition;

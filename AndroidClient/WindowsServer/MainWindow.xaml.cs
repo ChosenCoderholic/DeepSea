@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Lib.DeepSea;
 
 namespace WindowsServer
 {
@@ -31,24 +32,17 @@ namespace WindowsServer
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.178.27"), 1920);
+            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.178.34"), 1920);
             Socket clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
 
             clientSocket.Connect(clientEndPoint);
-            //clientSocket.Send(Encoding.ASCII.GetBytes("DasIstEineTestNachricht"));
             
             int size = clientSocket.Receive(data);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(data, 1, 2);
-                Array.Reverse(data, 3, 2);
-            }
 
-            ushort screenWidth = BitConverter.ToUInt16(data, 1);
-            ushort screenHeight = BitConverter.ToUInt16(data, 3);
+            ClientDefinitionPacket packet = DeepSea.GetPacket<ClientDefinitionPacket>(data, size);
 
-            MessageBox.Show($"Daten: typ={data[0].ToString()}; x={ BitConverter.ToUInt16(data, 1).ToString() }; y={BitConverter.ToUInt16(data, 3).ToString()}");
+            MessageBox.Show($"Daten: typ={PacketType.ClientDefinition}; x={ packet.width }; y={packet.height}");
         }
     }
 }
