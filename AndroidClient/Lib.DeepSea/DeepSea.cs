@@ -46,7 +46,6 @@ namespace Lib.DeepSea
 
     public struct StreamPacket
     {
-        public byte options;
     }
 
     public class DeepSea
@@ -87,7 +86,8 @@ namespace Lib.DeepSea
                     packet = new StreamRequestPacket() { options = packetData[1] };
                     break;
                 case PacketType.Stream:
-                    packet = new StreamPacket() { options = packetData[1] };
+                    throw new NotImplementedException();
+                    packet = new StreamPacket() { };
                     break;
                 default:
                     type = PacketType.Unknown;
@@ -107,19 +107,98 @@ namespace Lib.DeepSea
         }
     }
 
-    interface IDeepSeaServer
+    public interface IPacketSender
     {
-        bool SendConnectionRequest();
-        bool SendTargetDefinition();
-        bool SendStream();
+        bool SendPayload(byte[] payload);
     }
 
-    interface IDeepSeaClient
+    public class DeepSeaServer
     {
-        bool SendClientDefinition();
+        private IPacketSender packetSender;
 
-        bool SendReadyForStream();
+        public bool Send(ConnectionRequestPacket packet)
+        {
+            if (packetSender.SendPayload(new byte[] {packet.options}))
+                return true;
+            return false;
+        }
 
+        public bool Send(TargetDefinitionPacket packet)
+        {
+            byte[] width = BitConverter.GetBytes(packet.width);
+            byte[] height = BitConverter.GetBytes(packet.height);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(width);
+                Array.Reverse(height);
+            }
+
+            byte[] payload = new[]
+            {
+                Convert.ToByte(PacketType.ClientDefinition),
+                width[0],
+                width[1],
+                height[0],
+                height[1]
+            };
+
+            if (packetSender.SendPayload(payload))
+                return true;
+            return false;
+        }
+
+        public bool Send(StreamPacket packet)
+        {
+            return false;
+        }
+
+        public DeepSeaServer(ref IPacketSender packetSender)
+        {
+            this.packetSender = packetSender;
+        }
+    }
+
+    public class DeepSeaClient
+    {
+        private IPacketSender packetSender;
+
+        public bool Send(ClientDefinitionPacket packet)
+        {
+            byte[] width = BitConverter.GetBytes(packet.width);
+            byte[] height = BitConverter.GetBytes(packet.height);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(width);
+                Array.Reverse(height);
+            }
+
+            byte[] payload = new[]
+            {
+                Convert.ToByte(PacketType.ClientDefinition),
+                width[0],
+                width[1],
+                height[0],
+                height[1]
+            };
+
+            if (packetSender.SendPayload(payload))
+                return true;
+            return false;
+        }
+
+        public bool Send(StreamRequestPacket packet)
+        {
+            if (packetSender.SendPayload(new byte[] { packet.options }))
+                return true;
+            return false;
+        }
+
+        public DeepSeaClient(ref IPacketSender packetSender)
+        {
+            this.packetSender = packetSender;
+        }
     }
 }
 

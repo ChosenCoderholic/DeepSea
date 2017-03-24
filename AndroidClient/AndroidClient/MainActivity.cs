@@ -16,9 +16,25 @@ using Lib.DeepSea;
 
 namespace AndroidClient
 {
-    
+    class PacketSender : IPacketSender
+    {
+        public static Socket socket = null;
+
+        public bool SendPayload(byte[] payload)
+        {
+            if (socket.Connected)
+            {
+                socket.Send(payload);
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+
     [Activity(Label = "AndroidClient", MainLauncher = true, Icon = "@drawable/icon", ScreenOrientation = ScreenOrientation.Landscape)]
-    
+
     public class MainActivity : Activity
     {
 
@@ -35,11 +51,11 @@ namespace AndroidClient
             WaitingForStream
         }
 
-        
 
-        IWindowManager windowManager;
+        private DeepSeaClient deepSeaClient;
+        private IWindowManager windowManager;
         private Point ScreenSize = new Point(0, 0);
-        State currentState = State.Initializing;
+        private State currentState = State.Initializing;
         private Thread workerThread = null;
 
         private TextView txtStatus = null;
@@ -48,18 +64,18 @@ namespace AndroidClient
         protected override void OnCreate(Bundle bundle)
         {
             base.OnCreate(bundle);
-            
+
             SetContentView(Resource.Layout.Main);
 
             txtStatus = FindViewById<TextView>(Resource.Id.txtState);
 
             workerThread = new Thread(() =>
             {
-                Socket serverSocket = null;
+                PacketSender.socket = null;
 
                 while (currentState != State.WaitingForStream)
                 {
-                    currentState = HandleConnection(ref serverSocket);
+                    currentState = HandleConnection(ref PacketSender.socket);
                 }
             });
 
@@ -82,7 +98,7 @@ namespace AndroidClient
                     UpdateStatusText("Initializing");
                     windowManager = GetSystemService(Context.WindowService).JavaCast<IWindowManager>();
                     windowManager.DefaultDisplay.GetRealSize(ScreenSize);
-                    
+
                     return State.WaitingForHost;
 
                 case State.WaitingForHost:
@@ -91,7 +107,7 @@ namespace AndroidClient
                     serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     serverSocket.Bind(ipEndPoint);
                     serverSocket.Listen(100);
-                    
+
                     serverSocket = serverSocket.Accept();
 
                     return State.WaitingForConnectionRequest;
@@ -130,32 +146,38 @@ namespace AndroidClient
 
         private bool SendClientInfo(Socket serverSocket)
         {
-            byte[] width = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.X));
-            byte[] height = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.Y));
+            //byte[] width = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.X));
+            //byte[] height = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.Y));
 
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(width);
-                Array.Reverse(height);
-            }
-    
-            byte[] tcpPayload = new[]
-            {
-                Convert.ToByte(PacketType.ClientDefinition),
-                width[0],
-                width[1],
-                height[0],
-                height[1]
-            };
+            //if (BitConverter.IsLittleEndian)
+            //{
+            //    Array.Reverse(width);
+            //    Array.Reverse(height);
+            //}
 
-            width = null;
-            height = null;
+            //byte[] tcpPayload = new[]
+            //{
+            //    Convert.ToByte(PacketType.ClientDefinition),
+            //    width[0],
+            //    width[1],
+            //    height[0],
+            //    height[1]
+            //};
 
-            if (serverSocket.Connected)
+            //width = null;
+            //height = null;
+
+            //if (serverSocket.Connected)
+            //{
+            //    serverSocket.Send(tcpPayload);
+            //    return true;
+            //}
+
+            deepSeaClient.Send(new ClientDefinitionPacket()
             {
-                serverSocket.Send(tcpPayload);
-                return true;
-            }
+                width = Convert.ToUInt16(ScreenSize.X),
+                height = Convert.ToUInt16(ScreenSize.Y)
+            });
 
             return false;
         }
