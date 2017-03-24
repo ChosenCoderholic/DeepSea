@@ -16,19 +16,29 @@ using Lib.DeepSea;
 
 namespace AndroidClient
 {
-    class PacketSender : IPacketSender
+    class CommunicationProvider : ICommunicationProvider
     {
-        public static Socket socket = null;
+        public Socket Socket;
 
         public bool SendPayload(byte[] payload)
         {
-            if (socket.Connected)
+            if (Socket.Connected)
             {
-                socket.Send(payload);
+                Socket.Send(payload);
                 return true;
             }
 
             return false;
+        }
+
+        public CommunicationProvider()
+        {
+            Socket = null;
+        }
+
+        public CommunicationProvider(ProtocolType protocolType)
+        {
+            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, protocolType);
         }
     }
 
@@ -37,9 +47,6 @@ namespace AndroidClient
 
     public class MainActivity : Activity
     {
-
-        //int count = 1;
-
         enum State
         {
             Initializing,
@@ -50,16 +57,21 @@ namespace AndroidClient
             SendingStreamRequest,
             WaitingForStream
         }
-
-
-        private DeepSeaClient deepSeaClient;
-        private IWindowManager windowManager;
-        private Point ScreenSize = new Point(0, 0);
+        
         private State currentState = State.Initializing;
+
         private Thread workerThread = null;
 
         private TextView txtStatus = null;
 
+        private Point ScreenSize = new Point(0, 0);
+
+        private DeepSeaClient DeepSeaClient = null;
+
+        private int receivedBytes = 0;
+        private byte[] buffer = new byte[20 * 1024];
+
+        private Point TargetScreenSize = new Point(0, 0);
 
         protected override void OnCreate(Bundle bundle)
         {
@@ -71,12 +83,16 @@ namespace AndroidClient
 
             workerThread = new Thread(() =>
             {
-                PacketSender.socket = null;
+                CommunicationProvider provider = new CommunicationProvider(ProtocolType.Tcp);
+
+                DeepSeaClient = new DeepSeaClient(provider);
 
                 while (currentState != State.WaitingForStream)
                 {
-                    currentState = HandleConnection(ref PacketSender.socket);
+                    currentState = HandleConnection(ref provider.Socket);
                 }
+
+                //TODO: Start stream activity
             });
 
             workerThread.IsBackground = true;
@@ -96,30 +112,37 @@ namespace AndroidClient
             {
                 case State.Initializing:
                     UpdateStatusText("Initializing");
-                    windowManager = GetSystemService(Context.WindowService).JavaCast<IWindowManager>();
+
+                    IWindowManager windowManager = GetSystemService(Context.WindowService).JavaCast<IWindowManager>();
                     windowManager.DefaultDisplay.GetRealSize(ScreenSize);
 
                     return State.WaitingForHost;
 
                 case State.WaitingForHost:
                     UpdateStatusText("Waiting for host");
+
                     IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 1920);
                     serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     serverSocket.Bind(ipEndPoint);
                     serverSocket.Listen(100);
 
                     serverSocket = serverSocket.Accept();
-
                     return State.WaitingForConnectionRequest;
 
                 case State.WaitingForConnectionRequest:
                     UpdateStatusText("Waiting for connection request");
-                    //TODO: Wait for packet
-                    return State.SendingClientDefinition;
+
+                    receivedBytes = serverSocket.Receive(buffer);
+                    if(DeepSea.GetPacketType(buffer) == PacketType.ConnectionRequest)
+                        return State.SendingClientDefinition;
+
+                    serverSocket.Close();
+                    return State.WaitingForHost;
 
                 case State.SendingClientDefinition:
                     UpdateStatusText("Sending client information");
-                    if (SendClientInfo(serverSocket))
+
+                    if (DeepSeaClient.Send(new ClientDefinitionPacket() {width = Convert.ToUInt16(ScreenSize.X), height = Convert.ToUInt16(ScreenSize.Y)}))
                         return State.WaitingForTargetDefinition;
 
                     serverSocket.Close();
@@ -127,59 +150,45 @@ namespace AndroidClient
 
                 case State.WaitingForTargetDefinition:
                     UpdateStatusText("Waiting for target definition");
-                    //TODO: Wait for packet
-                    return State.SendingStreamRequest;
+
+                    receivedBytes = serverSocket.Receive(buffer);
+                    if (DeepSea.GetPacketType(buffer) == PacketType.TargetDefinition)
+                    {
+                        TargetDefinitionPacket targetDefinitionPacket = DeepSea.GetPacket<TargetDefinitionPacket>(buffer, receivedBytes);
+
+                        TargetScreenSize.X = targetDefinitionPacket.width;
+                        TargetScreenSize.Y = targetDefinitionPacket.height;
+
+                        return State.SendingStreamRequest;
+                    }
+
+                    serverSocket.Close();
+                    return State.WaitingForHost;
 
                 case State.SendingStreamRequest:
                     UpdateStatusText("Sending stream request");
-                    return State.WaitingForStream;
+
+                    if(DeepSeaClient.Send(new StreamRequestPacket() {options = 0}))
+                        return State.WaitingForStream;
+
+                    serverSocket.Close();
+                    return State.WaitingForHost;
 
                 case State.WaitingForStream:
                     UpdateStatusText("Waiting for stream");
 
-                    return State.WaitingForStream;
+                    receivedBytes = serverSocket.Receive(buffer);
+                    if (DeepSea.GetPacketType(buffer) == PacketType.Stream)
+                    {
+                        return State.WaitingForStream;
+                    }
+
+                    serverSocket.Close();
+                    return State.WaitingForHost;
 
                 default:
                     return State.WaitingForHost;
             }
-        }
-
-        private bool SendClientInfo(Socket serverSocket)
-        {
-            //byte[] width = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.X));
-            //byte[] height = BitConverter.GetBytes(Convert.ToUInt16(ScreenSize.Y));
-
-            //if (BitConverter.IsLittleEndian)
-            //{
-            //    Array.Reverse(width);
-            //    Array.Reverse(height);
-            //}
-
-            //byte[] tcpPayload = new[]
-            //{
-            //    Convert.ToByte(PacketType.ClientDefinition),
-            //    width[0],
-            //    width[1],
-            //    height[0],
-            //    height[1]
-            //};
-
-            //width = null;
-            //height = null;
-
-            //if (serverSocket.Connected)
-            //{
-            //    serverSocket.Send(tcpPayload);
-            //    return true;
-            //}
-
-            deepSeaClient.Send(new ClientDefinitionPacket()
-            {
-                width = Convert.ToUInt16(ScreenSize.X),
-                height = Convert.ToUInt16(ScreenSize.Y)
-            });
-
-            return false;
         }
     }
 }

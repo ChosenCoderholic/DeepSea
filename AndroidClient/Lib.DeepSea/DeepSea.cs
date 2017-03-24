@@ -86,7 +86,7 @@ namespace Lib.DeepSea
                     packet = new StreamRequestPacket() { options = packetData[1] };
                     break;
                 case PacketType.Stream:
-                    throw new NotImplementedException();
+                    //TODO: Do the packet shit
                     packet = new StreamPacket() { };
                     break;
                 default:
@@ -107,18 +107,18 @@ namespace Lib.DeepSea
         }
     }
 
-    public interface IPacketSender
+    public interface ICommunicationProvider
     {
         bool SendPayload(byte[] payload);
     }
 
     public class DeepSeaServer
     {
-        private IPacketSender packetSender;
+        private ICommunicationProvider provider;
 
         public bool Send(ConnectionRequestPacket packet)
         {
-            if (packetSender.SendPayload(new byte[] {packet.options}))
+            if (provider.SendPayload(new byte[] {Convert.ToByte(PacketType.ConnectionRequest), packet.options}))
                 return true;
             return false;
         }
@@ -136,14 +136,14 @@ namespace Lib.DeepSea
 
             byte[] payload = new[]
             {
-                Convert.ToByte(PacketType.ClientDefinition),
+                Convert.ToByte(PacketType.TargetDefinition),
                 width[0],
                 width[1],
                 height[0],
                 height[1]
             };
 
-            if (packetSender.SendPayload(payload))
+            if (provider.SendPayload(payload))
                 return true;
             return false;
         }
@@ -153,15 +153,15 @@ namespace Lib.DeepSea
             return false;
         }
 
-        public DeepSeaServer(ref IPacketSender packetSender)
+        public DeepSeaServer(ICommunicationProvider provider)
         {
-            this.packetSender = packetSender;
+            this.provider = provider;
         }
     }
 
     public class DeepSeaClient
     {
-        private IPacketSender packetSender;
+        private ICommunicationProvider provider;
 
         public bool Send(ClientDefinitionPacket packet)
         {
@@ -183,21 +183,21 @@ namespace Lib.DeepSea
                 height[1]
             };
 
-            if (packetSender.SendPayload(payload))
+            if (provider.SendPayload(payload))
                 return true;
             return false;
         }
 
         public bool Send(StreamRequestPacket packet)
         {
-            if (packetSender.SendPayload(new byte[] { packet.options }))
+            if (provider.SendPayload(new byte[] { Convert.ToByte(PacketType.StreamRequest), packet.options }))
                 return true;
             return false;
         }
 
-        public DeepSeaClient(ref IPacketSender packetSender)
+        public DeepSeaClient(ICommunicationProvider provider)
         {
-            this.packetSender = packetSender;
+            this.provider = provider;
         }
     }
 }

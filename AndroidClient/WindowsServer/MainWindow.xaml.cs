@@ -18,6 +18,32 @@ using Lib.DeepSea;
 
 namespace WindowsServer
 {
+    class CommunicationProvider : ICommunicationProvider
+    {
+        public Socket Socket;
+
+        public bool SendPayload(byte[] payload)
+        {
+            if (Socket.Connected)
+            {
+                Socket.Send(payload);
+                return true;
+            }
+
+            return false;
+        }
+
+        public CommunicationProvider()
+        {
+            Socket = null;
+        }
+
+        public CommunicationProvider(ProtocolType protocolType)
+        {
+            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, protocolType);
+        }
+    }
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
@@ -28,21 +54,56 @@ namespace WindowsServer
             InitializeComponent();
         }
 
-        byte[] data = new byte[3 * 1024];
+        private DeepSeaServer DeepSeaServer;
+
+        private int receivedBytes = 0;
+        private byte[] buffer = new byte[20 * 1024];
+
+        private Point ClientScreenSize = new Point(0, 0);
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.42.129"), 1920);
-            Socket clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.178.30"), 1920);
 
-
-            clientSocket.Connect(clientEndPoint);
+            CommunicationProvider provider = new CommunicationProvider(ProtocolType.Tcp);
             
-            int size = clientSocket.Receive(data);
+            provider.Socket.Connect(clientEndPoint);
 
-            ClientDefinitionPacket packet = DeepSea.GetPacket<ClientDefinitionPacket>(data, size);
+            DeepSeaServer = new DeepSeaServer(provider);
 
-            MessageBox.Show($"Daten: typ={PacketType.ClientDefinition}; x={ packet.width }; y={packet.height}");
+            if (!DeepSeaServer.Send(new ConnectionRequestPacket() {options = 0}))
+            {
+                provider.Socket.Close();
+                return;
+            }
+
+            receivedBytes = provider.Socket.Receive(buffer);
+            if (DeepSea.GetPacketType(buffer) != PacketType.ClientDefinition)
+            {
+                provider.Socket.Close();
+                return;
+            }
+
+            ClientDefinitionPacket clientDefinitionPacket = DeepSea.GetPacket<ClientDefinitionPacket>(buffer, receivedBytes);
+            ClientScreenSize.X = clientDefinitionPacket.width;
+            ClientScreenSize.Y = clientDefinitionPacket.height;
+
+            Point targetDefinition = ClientScreenSize;
+            if (!DeepSeaServer.Send(new TargetDefinitionPacket() {width = Convert.ToUInt16(targetDefinition.X), height = Convert.ToUInt16(targetDefinition.Y)}))
+            {
+                provider.Socket.Close();
+                return;
+            }
+
+            receivedBytes = provider.Socket.Receive(buffer);
+            if (DeepSea.GetPacketType(buffer) != PacketType.StreamRequest)
+            {
+                provider.Socket.Close();
+                return;
+            }
+
+            //TODO: Start streaming the video
+            
         }
     }
 }
