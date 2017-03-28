@@ -16,33 +16,6 @@ using Lib.DeepSea;
 
 namespace AndroidClient
 {
-    class CommunicationProvider : ICommunicationProvider
-    {
-        public Socket Socket;
-
-        public bool SendPayload(byte[] payload)
-        {
-            if (Socket.Connected)
-            {
-                Socket.Send(payload);
-                return true;
-            }
-
-            return false;
-        }
-
-        public CommunicationProvider()
-        {
-            Socket = null;
-        }
-
-        public CommunicationProvider(ProtocolType protocolType)
-        {
-            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, protocolType);
-        }
-    }
-
-
     [Activity(Label = "AndroidClient", MainLauncher = true, Icon = "@drawable/icon", ScreenOrientation = ScreenOrientation.Landscape)]
 
     public class MainActivity : Activity
@@ -92,6 +65,8 @@ namespace AndroidClient
                     currentState = HandleConnection(ref provider.Socket);
                 }
 
+
+                StartActivity(typeof(StreamActivity));
                 //TODO: Start stream activity
             });
 

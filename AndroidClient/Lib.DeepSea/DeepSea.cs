@@ -46,6 +46,7 @@ namespace Lib.DeepSea
 
     public struct StreamPacket
     {
+        public byte[] imageBytes;
     }
 
     public class DeepSea

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -63,7 +64,7 @@ namespace WindowsServer
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.178.30"), 1920);
+            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.42.129"), 1920);
 
             CommunicationProvider provider = new CommunicationProvider(ProtocolType.Tcp);
             
