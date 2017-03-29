@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -16,6 +19,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Lib.DeepSea;
+using Point = System.Windows.Point;
 
 namespace WindowsServer
 {
@@ -59,12 +63,13 @@ namespace WindowsServer
 
         private int receivedBytes = 0;
         private byte[] buffer = new byte[20 * 1024];
-
+        private Bitmap imageBuffer = new Bitmap((int)SystemParameters.PrimaryScreenWidth, (int)SystemParameters.PrimaryScreenHeight);
+        
         private Point ClientScreenSize = new Point(0, 0);
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.42.129"), 1920);
+            IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Parse("192.168.178.26"), 1920);
 
             CommunicationProvider provider = new CommunicationProvider(ProtocolType.Tcp);
             
@@ -104,7 +109,26 @@ namespace WindowsServer
             }
 
             //TODO: Start streaming the video
-            
+            Graphics graphics = Graphics.FromImage(imageBuffer);
+            Socket streamSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            StreamPacket streamPacket = new StreamPacket();
+            streamPacket.imageBytes = buffer;
+            MemoryStream memoryStream = new MemoryStream(buffer);
+
+            byte packetTypeByte = Convert.ToByte(PacketType.Stream);
+            IPEndPoint clientUdpEndPoint = new IPEndPoint(clientEndPoint.Address, 1080);
+
+            while (true)
+            {
+                graphics.CopyFromScreen(0, 0, 0, 0, imageBuffer.Size);
+                imageBuffer.Save(memoryStream, ImageFormat.Jpeg);
+                
+                System.Buffer.BlockCopy(buffer, 0, buffer, 1, buffer.Length - 1);
+                buffer[0] = packetTypeByte;
+
+                streamSocket.SendTo(buffer, clientUdpEndPoint);
+            }
         }
     }
 }
